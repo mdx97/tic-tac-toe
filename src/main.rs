@@ -20,11 +20,13 @@ const PLAYING_AREA_OFFSET: u32 = BORDER_THICKNESS as u32 * 2;
 /// The height and width of the playing area, in pixels.
 const PLAYING_AREA_SIZE: u32 = WINDOW_SIZE - (PLAYING_AREA_OFFSET * 2);
 
+const SQUARE_WIDTH: u32 = 4;
+
 /// The height and width of each square, in pixels.
-const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / 3;
+const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / SQUARE_WIDTH;
 
 /// How many extra pixels the border must fill in so there is no space between the outer squares and the border.
-const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * 3);
+const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * SQUARE_WIDTH);
 
 #[derive(Clone, PartialEq)]
 enum Square {
@@ -43,12 +45,12 @@ fn fill_rectangle(canvas: &mut WindowCanvas, rectangle: Rect, color: Color) {
 fn get_square_from_coords(x: i32, y: i32) -> Option<usize> {
     let x = x - PLAYING_AREA_OFFSET as i32;
     let y = y - PLAYING_AREA_OFFSET as i32;
-    if x <= 0 || y <= 0 || x >= (SQUARE_SIZE * 3) as i32 || y >= (SQUARE_SIZE * 3) as i32 {
+    if x <= 0 || y <= 0 || x >= (SQUARE_SIZE * SQUARE_WIDTH) as i32 || y >= (SQUARE_SIZE * SQUARE_WIDTH) as i32 {
         return None;
     }
     let col = x as u32 / SQUARE_SIZE;
     let row = y as u32 / SQUARE_SIZE;
-    Some(((row * 3) + col) as usize)
+    Some(((row * SQUARE_WIDTH) + col) as usize)
 }
 
 /// Returns a new rect that covers the inner portion of the given rectangle.
@@ -63,7 +65,7 @@ fn get_inner_rect(rect: Rect) -> Rect {
 
 /// Returns whether or not the given board state has a winner.
 fn has_winner(squares: &Vec<Square>) -> bool {
-    for i in 0..3 {
+    for i in 0..SQUARE_WIDTH as usize {
         if line_has_winner(&squares, |constant, i| (constant, i), i) || line_has_winner(&squares, |constant, i| (i, constant), i) {
             return true;
         }
@@ -80,7 +82,7 @@ fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize
     if *line_square == Square::Empty {
         return false;
     }
-    for i in 1..3 {
+    for i in 1..SQUARE_WIDTH as usize {
         let square = get_square(constant, i);
         if *get_square_flatten_index(squares, square.0, square.1) != *line_square {
             return false;
@@ -91,7 +93,7 @@ fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize
 
 /// Returns a square from the square vector by treating it as a table.
 fn get_square_flatten_index(squares: &Vec<Square>, row: usize, col: usize) -> &Square {
-    &squares[(row * 3) + col]
+    &squares[(row * SQUARE_WIDTH as usize) + col]
 }
 
 fn main() {
@@ -113,7 +115,7 @@ fn main() {
         WINDOW_SIZE - (BORDER_THICKNESS as u32 * 4) - FILL_IN,
     );
 
-    let mut squares = vec![Square::Empty; 9];
+    let mut squares = vec![Square::Empty; (SQUARE_WIDTH * SQUARE_WIDTH) as usize];
     let mut turn = true;
 
     loop {
@@ -136,7 +138,7 @@ fn main() {
         }
 
         if has_winner(&squares) || !squares.iter().any(|s| *s == Square::Empty) {
-            squares = vec![Square::Empty; 9];
+            squares = vec![Square::Empty; (SQUARE_WIDTH * SQUARE_WIDTH) as usize];
             turn = true;
         }
 
@@ -144,8 +146,8 @@ fn main() {
         fill_rectangle(&mut canvas, border_rect, Color::WHITE);
         fill_rectangle(&mut canvas, playing_area_rect, Color::BLACK);
 
-        for i in 0..3 {
-            for j in 0..3 {
+        for i in 0..SQUARE_WIDTH as usize {
+            for j in 0..SQUARE_WIDTH as usize {
                 let rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
                 canvas.set_draw_color(Color::WHITE);
                 canvas.draw_rect(rect).unwrap();
