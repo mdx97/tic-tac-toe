@@ -9,10 +9,10 @@ use sdl2::mouse::MouseButton;
 use std::time::Duration;
 
 /// How many pixels wide are the outer borders of the playing area.
-const BORDER_THICKNESS: i32 = 10;
+const BORDER_THICKNESS: i32 = 20;
 
 /// The height and width of the window, in pixels.
-const WINDOW_SIZE: u32 = 512;
+const WINDOW_SIZE: u32 = 680;
 
 /// The coordinate where the playing area starts.
 const PLAYING_AREA_OFFSET: u32 = BORDER_THICKNESS as u32 * 2;
@@ -26,6 +26,13 @@ const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / 3;
 /// How many extra pixels the border must fill in so there is no space between the outer squares and the border.
 const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * 3);
 
+#[derive(Clone, PartialEq)]
+enum Square {
+    X,
+    O,
+    Empty,
+}
+
 /// Fills a rectangle with the given color.
 fn fill_rectangle(canvas: &mut WindowCanvas, rectangle: Rect, color: Color) {
     canvas.set_draw_color(color);
@@ -33,15 +40,50 @@ fn fill_rectangle(canvas: &mut WindowCanvas, rectangle: Rect, color: Color) {
 }
 
 /// Returns which square the given coordinates lie within, or None if outside the playing area.
-fn get_square_from_coords(x: i32, y: i32) -> Option<u32> {
-    let play_x = x - PLAYING_AREA_OFFSET as i32;
-    let play_y = y - PLAYING_AREA_OFFSET as i32;
-    if play_x < 0 || play_y < 0 || play_x >= (SQUARE_SIZE * 3) as i32 || play_y >= (SQUARE_SIZE * 3) as i32 {
+fn get_square_from_coords(x: i32, y: i32) -> Option<usize> {
+    let x = x - PLAYING_AREA_OFFSET as i32;
+    let y = y - PLAYING_AREA_OFFSET as i32;
+    if x <= 0 || y <= 0 || x >= (SQUARE_SIZE * 3) as i32 || y >= (SQUARE_SIZE * 3) as i32 {
         return None;
     }
-    let col = play_x as u32 / SQUARE_SIZE;
-    let row = play_y as u32 / SQUARE_SIZE;
-    Some(((row * 3) + col) as u32)
+    let col = x as u32 / SQUARE_SIZE;
+    let row = y as u32 / SQUARE_SIZE;
+    Some(((row * 3) + col) as usize)
+}
+
+/// Returns a new rect that covers the inner portion of the given rectangle.
+fn get_inner_rect(rect: Rect) -> Rect {
+    let mut new = rect.clone();
+    new.set_x(rect.x() + 1);
+    new.set_y(rect.y() + 1);
+    new.set_width(rect.width() - 2);
+    new.set_height(rect.height() - 2);
+    new
+}
+
+/// Returns whether or not the given board state has a winner.
+fn has_winner(squares: &Vec<Square>) -> bool {
+    for i in 0..3 {
+        let row_square = get_flatten_index(&squares, 3, 0, i);
+        let col_square = get_flatten_index(&squares, 3, i, 0);
+        let mut row_count = 1;
+        let mut col_count = 1;
+        for j in 1..3 {
+            if get_flatten_index(&squares, 3, j, i) == row_square { row_count += 1; }
+            if get_flatten_index(&squares, 3, i, j) == col_square { col_count += 1; }
+        }
+        if (*row_square != Square::Empty && row_count == 3) || (*col_square != Square::Empty && col_count == 3) {
+            return true;
+        }
+    }
+    // TODO: Check diagonals.
+    false
+}
+
+/// Returns a value from the collection by treating it as a table.
+fn get_flatten_index<T>(collection: &Vec<T>, width: usize, row: usize, col: usize) -> &T {
+    let index = (row * width) + col;
+    &collection[index]
 }
 
 fn main() {
@@ -63,6 +105,9 @@ fn main() {
         WINDOW_SIZE - (BORDER_THICKNESS as u32 * 4) - FILL_IN,
     );
 
+    let mut squares = vec![Square::Empty; 9];
+    let mut turn = true;
+
     loop {
         canvas.clear();
         for event in event_pump.poll_iter() {
@@ -71,21 +116,43 @@ fn main() {
                     return;
                 },
                 Event::MouseButtonDown { mouse_btn: MouseButton::Left, x, y, .. } => {
-                    // TODO: Check if these coords can ever be negative. Why i32?
-                    println!("{:?}", get_square_from_coords(x, y));
+                    if let Some(square) = get_square_from_coords(x, y) {
+                        if squares[square] == Square::Empty {
+                            squares[square] = if turn { Square::X } else { Square::O };
+                            turn = !turn;
+                        }
+                    }
                 }
                 _ => {}
             }
+        }
+
+        if has_winner(&squares) || !squares.iter().any(|s| *s == Square::Empty) {
+            squares = vec![Square::Empty; 9];
+            turn = true;
         }
 
         fill_rectangle(&mut canvas, screen_rect, Color::BLACK);
         fill_rectangle(&mut canvas, border_rect, Color::WHITE);
         fill_rectangle(&mut canvas, playing_area_rect, Color::BLACK);
 
-        canvas.set_draw_color(Color::WHITE);
         for i in 0..3 {
             for j in 0..3 {
-                canvas.draw_rect(Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j)) as i32, SQUARE_SIZE, SQUARE_SIZE)).unwrap();
+                let mut rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
+                canvas.set_draw_color(Color::WHITE);
+                canvas.draw_rect(rect).unwrap();
+
+                match get_flatten_index(&squares, 3, j, i) {
+                    Square::X => {
+                        canvas.set_draw_color(Color::RED);
+                        canvas.fill_rect(get_inner_rect(rect)).unwrap();
+                    },
+                    Square::O => {
+                        canvas.set_draw_color(Color::BLUE);
+                        canvas.fill_rect(get_inner_rect(rect)).unwrap();
+                    },
+                    Square::Empty => (),
+                };
             }
         }
 
