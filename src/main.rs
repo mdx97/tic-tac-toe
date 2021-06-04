@@ -64,26 +64,37 @@ fn get_inner_rect(rect: Rect) -> Rect {
 /// Returns whether or not the given board state has a winner.
 fn has_winner(squares: &Vec<Square>) -> bool {
     for i in 0..3 {
-        let row_square = get_flatten_index(&squares, 3, 0, i);
-        let col_square = get_flatten_index(&squares, 3, i, 0);
+        let row_square = get_square_flatten_index(&squares, 0, i);
+        let col_square = get_square_flatten_index(&squares, i, 0);
         let mut row_count = 1;
         let mut col_count = 1;
         for j in 1..3 {
-            if get_flatten_index(&squares, 3, j, i) == row_square { row_count += 1; }
-            if get_flatten_index(&squares, 3, i, j) == col_square { col_count += 1; }
+            if get_square_flatten_index(&squares, j, i) == row_square { row_count += 1; }
+            if get_square_flatten_index(&squares, i, j) == col_square { col_count += 1; }
         }
         if (*row_square != Square::Empty && row_count == 3) || (*col_square != Square::Empty && col_count == 3) {
             return true;
         }
     }
-    // TODO: Check diagonals.
+    
+    let diag1_square = get_square_flatten_index(&squares, 0, 0);
+    let diag2_square = get_square_flatten_index(&squares, 2, 0);
+    let mut diag1_count = 1;
+    let mut diag2_count = 1;
+    for i in 1..3 {
+        if get_square_flatten_index(&squares, i, i) == diag1_square { diag1_count += 1; }
+        if get_square_flatten_index(&squares, 2 - i, i) == diag2_square { diag2_count += 1; }
+    }
+    if (*diag1_square != Square::Empty && diag1_count == 3) || (*diag2_square != Square::Empty && diag2_count == 3) {
+        return true;
+    }
+    
     false
 }
 
-/// Returns a value from the collection by treating it as a table.
-fn get_flatten_index<T>(collection: &Vec<T>, width: usize, row: usize, col: usize) -> &T {
-    let index = (row * width) + col;
-    &collection[index]
+/// Returns a square from the square vector by treating it as a table.
+fn get_square_flatten_index(squares: &Vec<Square>, row: usize, col: usize) -> &Square {
+    &squares[(row * 3) + col]
 }
 
 fn main() {
@@ -138,11 +149,11 @@ fn main() {
 
         for i in 0..3 {
             for j in 0..3 {
-                let mut rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
+                let rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
                 canvas.set_draw_color(Color::WHITE);
                 canvas.draw_rect(rect).unwrap();
 
-                match get_flatten_index(&squares, 3, j, i) {
+                match get_square_flatten_index(&squares, j, i) {
                     Square::X => {
                         canvas.set_draw_color(Color::RED);
                         canvas.fill_rect(get_inner_rect(rect)).unwrap();
