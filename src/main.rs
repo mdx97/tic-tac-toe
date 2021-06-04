@@ -64,32 +64,29 @@ fn get_inner_rect(rect: Rect) -> Rect {
 /// Returns whether or not the given board state has a winner.
 fn has_winner(squares: &Vec<Square>) -> bool {
     for i in 0..3 {
-        let row_square = get_square_flatten_index(&squares, 0, i);
-        let col_square = get_square_flatten_index(&squares, i, 0);
-        let mut row_count = 1;
-        let mut col_count = 1;
-        for j in 1..3 {
-            if get_square_flatten_index(&squares, j, i) == row_square { row_count += 1; }
-            if get_square_flatten_index(&squares, i, j) == col_square { col_count += 1; }
-        }
-        if (*row_square != Square::Empty && row_count == 3) || (*col_square != Square::Empty && col_count == 3) {
+        if line_has_winner(&squares, |constant, i| (constant, i), i) || line_has_winner(&squares, |constant, i| (i, constant), i) {
             return true;
         }
     }
-    
-    let diag1_square = get_square_flatten_index(&squares, 0, 0);
-    let diag2_square = get_square_flatten_index(&squares, 2, 0);
-    let mut diag1_count = 1;
-    let mut diag2_count = 1;
+    line_has_winner(&squares, |_, i| (i, i), 0) || line_has_winner(&squares, |_, i| (2 - i, i), 0)
+}
+
+/// Returns whether or not the given line has a winner.
+/// This function operates in kind of a wonky way. Essentially it traverses the size of the board, and for each iteration,
+/// executes the provided function get_square() with the arguments constant, i (the iteration).
+fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize, usize), constant: usize) -> bool {
+    let start = get_square(constant, 0);
+    let line_square = get_square_flatten_index(squares, start.0, start.1);
+    if *line_square == Square::Empty {
+        return false;
+    }
     for i in 1..3 {
-        if get_square_flatten_index(&squares, i, i) == diag1_square { diag1_count += 1; }
-        if get_square_flatten_index(&squares, 2 - i, i) == diag2_square { diag2_count += 1; }
+        let square = get_square(constant, i);
+        if *get_square_flatten_index(squares, square.0, square.1) != *line_square {
+            return false;
+        }
     }
-    if (*diag1_square != Square::Empty && diag1_count == 3) || (*diag2_square != Square::Empty && diag2_count == 3) {
-        return true;
-    }
-    
-    false
+    true
 }
 
 /// Returns a square from the square vector by treating it as a table.
