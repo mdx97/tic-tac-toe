@@ -88,7 +88,7 @@ fn get_flatten_index<T>(collection: &Vec<T>, width: usize, row: usize, col: usiz
 
 fn main() {
     let sdl = sdl2::init().unwrap();
-    let window = sdl.video().unwrap().window("rust-sdl2 demo", WINDOW_SIZE, WINDOW_SIZE)
+    let window = sdl.video().unwrap().window("Tic-Tac-Toe!", WINDOW_SIZE, WINDOW_SIZE)
         .position_centered()
         .build()
         .unwrap();
