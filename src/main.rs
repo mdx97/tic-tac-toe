@@ -30,7 +30,7 @@ const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / SQUARES;
 const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * SQUARES);
 
 /// The time to wait in between games, in seconds.
-const WIN_TIMEOUT: u64 = 2;
+const NEW_GAME_TIMEOUT: u64 = 2;
 
 struct GameState {
     freeze_until: Option<Instant>,
@@ -79,32 +79,47 @@ fn get_inner_rect(rect: Rect) -> Rect {
     new
 }
 
-/// Returns whether or not the given board state has a winner.
-fn has_winner(squares: &Vec<Square>) -> bool {
+/// Returns the winner of the board, or None if nobody has won yet.
+fn get_winner(squares: &Vec<Square>) -> Option<Square> {
+    // TODO: Cleanup?
     for i in 0..SQUARES as usize {
-        if line_has_winner(&squares, |constant, i| (constant, i), i) || line_has_winner(&squares, |constant, i| (i, constant), i) {
-            return true;
+        if let Some(winner) = line_winner(&squares, |constant, i| (constant, i), i) {
+            return Some(winner);
+        }
+        if let Some(winner) = line_winner(&squares, |constant, i| (i, constant), i) {
+            return Some(winner);
         }
     }
-    line_has_winner(&squares, |_, i| (i, i), 0) || line_has_winner(&squares, |_, i| (SQUARES as usize - i - 1, i), 0)
+    if let Some(winner) = line_winner(&squares, |_, i| (i, i), 0) {
+        return Some(winner);
+    }
+    if let Some(winner) = line_winner(&squares, |_, i| (SQUARES as usize - i - 1, i), 0) {
+        return Some(winner);
+    }
+    None
 }
 
-/// Returns whether or not the given line has a winner.
+/// Freezes the game in preparation of a new game.
+fn endgame(state: &mut GameState) {
+    state.freeze_until = Some(Instant::now() + Duration::from_secs(NEW_GAME_TIMEOUT))
+}
+
+/// Returns the winner of the given line.
 /// This function operates in kind of a wonky way. Essentially it traverses the size of the board, and for each iteration,
 /// executes the provided function get_square() with the arguments: constant, i (the iteration number).
-fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize, usize), constant: usize) -> bool {
+fn line_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize, usize), constant: usize) -> Option<Square> {
     let start = get_square(constant, 0);
     let line_square = get_square_flatten_index(squares, start.0, start.1);
     if *line_square == Square::Empty {
-        return false;
+        return None;
     }
     for i in 1..SQUARES as usize {
         let square = get_square(constant, i);
         if *get_square_flatten_index(squares, square.0, square.1) != *line_square {
-            return false;
+            return None;
         }
     }
-    true
+    Some(line_square.clone())
 }
 
 /// Returns a square value from the squares vector by treating it as a table.
@@ -162,10 +177,12 @@ fn main() {
                 }
             }
 
-            if has_winner(&state.squares) || !state.squares.iter().any(|s| *s == Square::Empty) {
-                // TODO: Display who the winner is. Preferably via text in the game window, and not console output.
-                println!("There is a winner!");
-                state.freeze_until = Some(Instant::now() + Duration::from_secs(WIN_TIMEOUT));
+            if let Some(winner) = get_winner(&state.squares) {
+                println!("{} wins!", if winner == Square::X { "Red" } else { "Blue" });
+                endgame(&mut state);
+            } else if !state.squares.iter().any(|s| *s == Square::Empty) {
+                println!("Draw!");
+                endgame(&mut state);
             }
 
             fill_rectangle(&mut canvas, screen_rect, Color::BLACK);
