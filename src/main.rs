@@ -8,29 +8,28 @@ use sdl2::render::WindowCanvas;
 use sdl2::mouse::MouseButton;
 use std::time::{Duration, Instant};
 
-/// How many pixels wide are the outer borders of the playing area.
+/// The width of the outer borders of the playing area, in pixels.
 const BORDER_THICKNESS: i32 = 20;
 
 /// The height and width of the window, in pixels.
 const WINDOW_SIZE: u32 = 680;
 
-/// The coordinate where the playing area starts.
+/// The coordinate where the playing area starts, both x and y directions.
 const PLAYING_AREA_OFFSET: u32 = BORDER_THICKNESS as u32 * 2;
 
 /// The height and width of the playing area, in pixels.
 const PLAYING_AREA_SIZE: u32 = WINDOW_SIZE - (PLAYING_AREA_OFFSET * 2);
 
 /// The number of squares in the horizontal and vertical direction.
-/// Total number of squares in the playing area = SQUARES^2
 const SQUARES: u32 = 4;
 
 /// The height and width of each square, in pixels.
 const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / SQUARES;
 
-/// How many extra pixels the border must fill in so there is no space between the outer squares and the border.
+/// Extra pixels to fill in so there is no space between the outer squares and the border.
 const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * SQUARES);
 
-/// The number of seconds to wait after someone has won a game before clearing the board.
+/// The time to wait in between games, in seconds.
 const WIN_TIMEOUT: u64 = 2;
 
 struct GameState {
@@ -50,11 +49,7 @@ impl Default for GameState {
 }
 
 #[derive(Clone, PartialEq)]
-enum Square {
-    X,
-    O,
-    Empty,
-}
+enum Square { X, O, Empty }
 
 /// Fills a rectangle with the given color.
 fn fill_rectangle(canvas: &mut WindowCanvas, rectangle: Rect, color: Color) {
@@ -62,7 +57,7 @@ fn fill_rectangle(canvas: &mut WindowCanvas, rectangle: Rect, color: Color) {
     canvas.fill_rect(rectangle).unwrap();
 }
 
-/// Returns which square the given coordinates lie within, or None if outside the playing area.
+/// Returns the square number that the given coordinates lie within, or None if outside the playing area.
 fn get_square_from_coords(x: i32, y: i32) -> Option<usize> {
     let x = x - PLAYING_AREA_OFFSET as i32;
     let y = y - PLAYING_AREA_OFFSET as i32;
@@ -96,7 +91,7 @@ fn has_winner(squares: &Vec<Square>) -> bool {
 
 /// Returns whether or not the given line has a winner.
 /// This function operates in kind of a wonky way. Essentially it traverses the size of the board, and for each iteration,
-/// executes the provided function get_square() with the arguments constant, i (the iteration).
+/// executes the provided function get_square() with the arguments: constant, i (the iteration number).
 fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize, usize), constant: usize) -> bool {
     let start = get_square(constant, 0);
     let line_square = get_square_flatten_index(squares, start.0, start.1);
@@ -112,7 +107,7 @@ fn line_has_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize
     true
 }
 
-/// Returns a square from the square vector by treating it as a table.
+/// Returns a square value from the squares vector by treating it as a table.
 fn get_square_flatten_index(squares: &Vec<Square>, row: usize, col: usize) -> &Square {
     &squares[(row * SQUARES as usize) + col]
 }
