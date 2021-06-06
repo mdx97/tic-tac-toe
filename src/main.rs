@@ -32,6 +32,18 @@ const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * SQUARES);
 /// The time to wait in between games, in seconds.
 const NEW_GAME_TIMEOUT: u64 = 2;
 
+/// Lambda functions to be used to detect straight line winners in get_winner().
+const STRAIGHT_LINE_LAMBDAS: [fn(usize, usize) -> (usize, usize); 2] = [
+    |constant, i| (constant, i),
+    |constant, i| (i, constant),
+];
+
+/// Lambda functions to be used to detect diagonal line winners in get_winner().
+const DIAGONAL_LINE_LAMBDAS: [fn(usize, usize) -> (usize, usize); 2] = [
+    |_, i| (i, i),
+    |_, i| (SQUARES as usize - i - 1, i),
+];
+
 struct GameState {
     freeze_until: Option<Instant>,
     squares: Vec<Square>,
@@ -81,20 +93,17 @@ fn get_inner_rect(rect: Rect) -> Rect {
 
 /// Returns the winner of the board, or None if nobody has won yet.
 fn get_winner(squares: &Vec<Square>) -> Option<Square> {
-    // TODO: Cleanup?
     for i in 0..SQUARES as usize {
-        if let Some(winner) = line_winner(&squares, |constant, i| (constant, i), i) {
-            return Some(winner);
-        }
-        if let Some(winner) = line_winner(&squares, |constant, i| (i, constant), i) {
-            return Some(winner);
+        for lambda in STRAIGHT_LINE_LAMBDAS.iter() {
+            if let Some(winner) = line_winner(&squares, *lambda, i) {
+                return Some(winner);
+            }
         }
     }
-    if let Some(winner) = line_winner(&squares, |_, i| (i, i), 0) {
-        return Some(winner);
-    }
-    if let Some(winner) = line_winner(&squares, |_, i| (SQUARES as usize - i - 1, i), 0) {
-        return Some(winner);
+    for lambda in DIAGONAL_LINE_LAMBDAS.iter() {
+        if let Some(winner) = line_winner(&squares, *lambda, 0) {
+            return Some(winner);
+        }
     }
     None
 }
