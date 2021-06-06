@@ -6,7 +6,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::render::WindowCanvas;
 use sdl2::mouse::MouseButton;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// How many pixels wide are the outer borders of the playing area.
 const BORDER_THICKNESS: i32 = 20;
@@ -29,6 +29,25 @@ const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / SQUARES;
 
 /// How many extra pixels the border must fill in so there is no space between the outer squares and the border.
 const FILL_IN: u32 = PLAYING_AREA_SIZE - (SQUARE_SIZE * SQUARES);
+
+/// The number of seconds to wait after someone has won a game before clearing the board.
+const WIN_TIMEOUT: u64 = 2;
+
+struct GameState {
+    freeze_until: Option<Instant>,
+    squares: Vec<Square>,
+    turn: bool,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self {
+            freeze_until: None,
+            squares: vec![Square::Empty; (SQUARES * SQUARES) as usize],
+            turn: true,
+        }
+    }
+}
 
 #[derive(Clone, PartialEq)]
 enum Square {
@@ -117,58 +136,67 @@ fn main() {
         WINDOW_SIZE - (BORDER_THICKNESS as u32 * 4) - FILL_IN,
     );
 
-    let mut squares = vec![Square::Empty; (SQUARES * SQUARES) as usize];
-    let mut turn = true;
+    let mut state = GameState::default();
 
     loop {
-        canvas.clear();
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    return;
-                },
-                Event::MouseButtonDown { mouse_btn: MouseButton::Left, x, y, .. } => {
-                    if let Some(square) = get_square_from_coords(x, y) {
-                        if squares[square] == Square::Empty {
-                            squares[square] = if turn { Square::X } else { Square::O };
-                            turn = !turn;
+        if state.freeze_until.is_some() {
+            if Instant::now() > state.freeze_until.unwrap() {
+                state.freeze_until = None;
+                state = GameState::default();
+            } else {
+                // We need to drain the event pump so that events from the
+                // frozen period are not picked up once input is re-enabled.
+                for _ in event_pump.poll_iter() { }
+            }
+        } else {
+            canvas.clear();
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                        return;
+                    },
+                    Event::MouseButtonDown { mouse_btn: MouseButton::Left, x, y, .. } => {
+                        if let Some(square) = get_square_from_coords(x, y) {
+                            if state.squares[square] == Square::Empty {
+                                state.squares[square] = if state.turn { Square::X } else { Square::O };
+                                state.turn = !state.turn;
+                            }
                         }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
-        }
 
-        if has_winner(&squares) || !squares.iter().any(|s| *s == Square::Empty) {
-            squares = vec![Square::Empty; (SQUARES * SQUARES) as usize];
-            turn = true;
-        }
-
-        fill_rectangle(&mut canvas, screen_rect, Color::BLACK);
-        fill_rectangle(&mut canvas, border_rect, Color::WHITE);
-        fill_rectangle(&mut canvas, playing_area_rect, Color::BLACK);
-
-        for i in 0..SQUARES as usize {
-            for j in 0..SQUARES as usize {
-                let rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
-                canvas.set_draw_color(Color::WHITE);
-                canvas.draw_rect(rect).unwrap();
-
-                match get_square_flatten_index(&squares, j, i) {
-                    Square::X => {
-                        canvas.set_draw_color(Color::RED);
-                        canvas.fill_rect(get_inner_rect(rect)).unwrap();
-                    },
-                    Square::O => {
-                        canvas.set_draw_color(Color::BLUE);
-                        canvas.fill_rect(get_inner_rect(rect)).unwrap();
-                    },
-                    Square::Empty => (),
-                };
+            if has_winner(&state.squares) || !state.squares.iter().any(|s| *s == Square::Empty) {
+                // TODO: Display who the winner is. Preferably via text in the game window, and not console output.
+                println!("There is a winner!");
+                state.freeze_until = Some(Instant::now() + Duration::from_secs(WIN_TIMEOUT));
             }
-        }
 
-        canvas.present();
-        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+            fill_rectangle(&mut canvas, screen_rect, Color::BLACK);
+            fill_rectangle(&mut canvas, border_rect, Color::WHITE);
+            fill_rectangle(&mut canvas, playing_area_rect, Color::BLACK);
+
+            for i in 0..SQUARES as usize {
+                for j in 0..SQUARES as usize {
+                    let rect = Rect::new((PLAYING_AREA_OFFSET + (SQUARE_SIZE * i as u32)) as i32, (PLAYING_AREA_OFFSET + (SQUARE_SIZE * j as u32)) as i32, SQUARE_SIZE, SQUARE_SIZE);
+                    canvas.set_draw_color(Color::WHITE);
+                    canvas.draw_rect(rect).unwrap();
+
+                    match get_square_flatten_index(&state.squares, j, i) {
+                        Square::X => {
+                            canvas.set_draw_color(Color::RED);
+                            canvas.fill_rect(get_inner_rect(rect)).unwrap();
+                        },
+                        Square::O => {
+                            canvas.set_draw_color(Color::BLUE);
+                            canvas.fill_rect(get_inner_rect(rect)).unwrap();
+                        },
+                        Square::Empty => (),
+                    };
+                }
+            }
+            canvas.present();
+        }
     }
 }
