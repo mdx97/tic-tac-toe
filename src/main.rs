@@ -108,11 +108,6 @@ fn get_winner(squares: &Vec<Square>) -> Option<Square> {
     None
 }
 
-/// Freezes the game in preparation of a new game.
-fn endgame(state: &mut GameState) {
-    state.freeze_until = Some(Instant::now() + Duration::from_secs(NEW_GAME_TIMEOUT))
-}
-
 /// Returns the winner of the given line.
 /// This function operates in kind of a wonky way. Essentially it traverses the size of the board, and for each iteration,
 /// executes the provided function get_square() with the arguments: constant, i (the iteration number).
@@ -134,6 +129,11 @@ fn line_winner(squares: &Vec<Square>, get_square: fn(usize, usize) -> (usize, us
 /// Returns a square value from the squares vector by treating it as a table.
 fn get_square_flatten_index(squares: &Vec<Square>, row: usize, col: usize) -> &Square {
     &squares[(row * SQUARES as usize) + col]
+}
+
+/// Freezes the game in preparation of a new game.
+fn endgame(state: &mut GameState) {
+    state.freeze_until = Some(Instant::now() + Duration::from_secs(NEW_GAME_TIMEOUT))
 }
 
 fn main() {
