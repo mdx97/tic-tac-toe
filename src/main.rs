@@ -21,7 +21,7 @@ const PLAYING_AREA_OFFSET: u32 = BORDER_THICKNESS as u32 * 2;
 const PLAYING_AREA_SIZE: u32 = WINDOW_SIZE - (PLAYING_AREA_OFFSET * 2);
 
 /// The number of squares in the horizontal and vertical direction.
-const SQUARES: u32 = 4;
+const SQUARES: u32 = 3;
 
 /// The height and width of each square, in pixels.
 const SQUARE_SIZE: u32 = PLAYING_AREA_SIZE / SQUARES;
